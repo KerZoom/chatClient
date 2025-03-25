@@ -1,4 +1,4 @@
-package com.chatClient.services;
+package main.com.chatClient.services;
 
 public interface ChatWindowListener {
     void onNewMessage(String username, String message);

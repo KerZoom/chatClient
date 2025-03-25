@@ -1,15 +1,10 @@
-package com.chatClient.services;
+package main.com.chatClient.services;
 
-import com.chatClient.database.FirestoreUtil;
-import com.google.cloud.firestore.DocumentReference;
 import com.google.cloud.firestore.DocumentSnapshot;
-import com.google.cloud.firestore.Query;
-import com.google.cloud.firestore.QuerySnapshot;
+import main.com.chatClient.database.FirestoreUtil;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
-import java.util.concurrent.ExecutionException;
 
 public class ChatService {
     private final List<ChatWindowListener> messageListeners = new ArrayList<>();

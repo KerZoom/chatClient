@@ -1,8 +1,7 @@
-package com.chatClient.database;
+package main.com.chatClient.database;
 
 import com.google.auth.oauth2.GoogleCredentials;
 import com.google.cloud.firestore.*;
-import com.google.cloud.storage.BlobId;
 import com.google.cloud.storage.Storage;
 import com.google.cloud.storage.StorageOptions;
 import com.google.firebase.FirebaseApp;
@@ -292,15 +291,4 @@ public class FirestoreUtil {
         return getUserByEmail(email) != null;
     }
 
-    public static void storeUsernameInFirestore(String uid, String email) {
-        Map<String, Object> user = new HashMap<>();
-        user.put("email", email);
-        user.put("createdAt", FieldValue.serverTimestamp());
-
-        try {
-            db.collection("users").document(uid).set(user).get();
-        } catch (InterruptedException | ExecutionException e) {
-            e.printStackTrace();
-        }
-    }
 }

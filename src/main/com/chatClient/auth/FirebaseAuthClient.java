@@ -1,15 +1,15 @@
-package com.chatClient.auth;
+package main.com.chatClient.auth;
 
-import com.chatClient.database.FirestoreUtil;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.google.cloud.firestore.DocumentSnapshot;
 import com.google.cloud.firestore.Firestore;
-import com.google.cloud.storage.BlobId;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseAuthException;
 import com.google.firebase.auth.UserRecord;
-import org.json.JSONObject;
+import main.com.chatClient.database.FirestoreUtil;
+
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
@@ -85,12 +85,21 @@ public class FirebaseAuthClient {
         requestBody.put("password", password);
         requestBody.put("returnSecureToken", true);
 
+
         String response = sendPostRequest(url, requestBody);
         if (response != null) {
             try {
                 String jsonResponse = response.toString();
-                String idToken = objectMapper.readTree(jsonResponse).get("idToken").asText();
-                String uid = objectMapper.readTree(jsonResponse).get("localId").asText(); // Get UID
+                System.out.println("JSON Response: " + jsonResponse);
+                JsonNode rootNode = objectMapper.readTree(jsonResponse);
+
+                if (rootNode.has("error")) {
+                    System.err.println("Error during registration: " + rootNode.get("error").get("message").asText());
+                    return null;
+                }
+
+                String idToken = rootNode.get("idToken").asText();
+                String uid = rootNode.get("localId").asText();
                 storeUserInFirestoreAndAuth(uid, email, username);
                 return idToken;
             } catch (Exception e) {

@@ -1,4 +1,4 @@
-package com.chatClient.models;
+package main.com.chatClient.models;
 
 import com.google.cloud.Timestamp;
 
