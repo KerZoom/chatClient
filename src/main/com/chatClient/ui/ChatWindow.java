@@ -227,6 +227,9 @@ public class ChatWindow extends JFrame implements ChatWindowListener {
                 JTextArea messageArea = createMessageArea(message);
                 textPanel.add(messageArea);
             }
+        } else {
+            JTextArea messageArea = createMessageArea(message);
+            textPanel.add(messageArea);
         }
 
         messagePanel.add(textPanel, BorderLayout.CENTER);

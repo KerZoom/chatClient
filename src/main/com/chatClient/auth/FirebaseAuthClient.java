@@ -22,7 +22,7 @@ import java.util.Map;
 import java.util.concurrent.ExecutionException;
 
 public class FirebaseAuthClient {
-    private static final String API_KEY = "AIzaSyCGqisilUJHpLCESYQgML09tHTuZQUJw04"; // Replace with your actual API key
+    private static final String API_KEY = "AIzaSyCGqisilUJHpLCESYQgML09tHTuZQUJw04";
     private static final Firestore db = FirestoreUtil.getFirestore();
     private static final ObjectMapper objectMapper = new ObjectMapper();
 

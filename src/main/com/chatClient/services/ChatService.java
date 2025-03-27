@@ -1,13 +1,61 @@
 package main.com.chatClient.services;
 
+import com.google.auth.oauth2.GoogleCredentials;
+import com.google.cloud.firestore.DocumentChange;
 import com.google.cloud.firestore.DocumentSnapshot;
+import com.google.cloud.firestore.Firestore;
+import com.google.firebase.FirebaseApp;
+import com.google.firebase.FirebaseOptions;
+import com.google.firebase.cloud.FirestoreClient;
 import main.com.chatClient.database.FirestoreUtil;
 
+import java.io.FileInputStream;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 public class ChatService {
     private final List<ChatWindowListener> messageListeners = new ArrayList<>();
+    private final Firestore db;
+
+    public ChatService() {
+        try {
+            FileInputStream serviceAccount = new FileInputStream("firebase-adminsdk.json");
+            FirebaseOptions options = new FirebaseOptions.Builder()
+                    .setCredentials(GoogleCredentials.fromStream(serviceAccount))
+                    .build();
+            if (FirebaseApp.getApps().isEmpty()) {
+                FirebaseApp.initializeApp(options);
+            }
+            this.db = FirestoreClient.getFirestore();
+            setupMessageListener();
+        } catch (IOException e) {
+            System.err.println("Failed to initialize Firebase: " + e.getMessage());
+            throw new RuntimeException("Firebase initialization failed", e);
+        }
+    }
+
+    private void setupMessageListener() {
+        db.collection("messages")
+                .orderBy("timestamp")
+                .addSnapshotListener((snapshot, e) -> {
+                    if (e != null) {
+                        System.err.println("Listen failed: " + e);
+                        return;
+                    }
+                    if (snapshot != null) {
+                        for (DocumentChange dc : snapshot.getDocumentChanges()) {
+                            if (dc.getType() == DocumentChange.Type.ADDED) {
+                                Map<String, Object> messageData = dc.getDocument().getData();
+                                String senderUsername = (String) messageData.get("username");
+                                String message = (String) messageData.get("message");
+                                notifyNewMessage(senderUsername, message);
+                            }
+                        }
+                    }
+                });
+    }
 
     public void addMessageListener(ChatWindowListener listener) {
         messageListeners.add(listener);
@@ -23,54 +71,13 @@ public class ChatService {
         }
     }
 
-    /**
-     * Sends a message to the chat.
-     *
-     * @param email    The email of the sender.
-     * @param username The username of the sender.
-     * @param message  The message content.
-     */
     public void sendMessage(String email, String username, String message) {
-        // Get the sender's document ID using their email
         DocumentSnapshot userDoc = FirestoreUtil.getUserByEmail(email);
         if (userDoc != null && userDoc.exists()) {
             String senderId = userDoc.getId();
-
-            // Add the message to Firestore
             FirestoreUtil.addMessage(message, senderId, username);
-
-            // Notify listeners about the new message
-            notifyNewMessage(username, message);
         } else {
             System.err.println("User not found with email: " + email);
         }
-    }
-
-    /**
-     * Retrieves the document ID of a user by their username.
-     *
-     * @param username The username of the user.
-     * @return The document ID of the user, or null if not found.
-     */
-    public String getDocumentIdByUsername(String username) {
-        DocumentSnapshot userDoc = FirestoreUtil.getUserByUsername(username);
-        if (userDoc != null && userDoc.exists()) {
-            return userDoc.getId();
-        }
-        return null;
-    }
-
-    /**
-     * Retrieves the document ID of a user by their email.
-     *
-     * @param email The email of the user.
-     * @return The document ID of the user, or null if not found.
-     */
-    public String getDocumentIdByEmail(String email) {
-        DocumentSnapshot userDoc = FirestoreUtil.getUserByEmail(email);
-        if (userDoc != null && userDoc.exists()) {
-            return userDoc.getId();
-        }
-        return null;
     }
 }
