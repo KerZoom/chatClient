@@ -2,7 +2,6 @@ package main.com.chatClient.ui;
 
 import com.formdev.flatlaf.FlatDarkLaf;
 import com.google.cloud.Timestamp;
-import com.google.cloud.storage.BlobInfo;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.UserRecord;
 import com.google.firebase.cloud.StorageClient;
@@ -10,41 +9,46 @@ import main.com.chatClient.database.FirestoreUtil;
 import main.com.chatClient.services.ChatService;
 import main.com.chatClient.services.ChatWindowListener;
 
+import javax.imageio.ImageIO;
 import javax.swing.*;
-import javax.swing.text.*;
+import javax.swing.border.EmptyBorder;
 import java.awt.*;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
-import java.net.URISyntaxException;
+import java.io.UnsupportedEncodingException;
+import java.net.URI;
 import java.net.URL;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
-import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
-import java.util.*;
+import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
+import java.util.UUID;
 
 public class ChatWindow extends JFrame implements ChatWindowListener {
-    private final JTextPane chatArea;
+
+    private final JPanel messagesPanel;
+    private final JScrollPane scrollPane;
     private final JTextField messageField;
     private final JButton sendButton;
     private final JButton uploadButton;
+
     private String username;
     private final String email;
     private final ChatService chatService;
     private final List<String> imageExtensions = Arrays.asList("png", "jpg", "jpeg", "gif", "webp");
-    private static final int PREVIEW_WIDTH = 150;
-    private static final int PREVIEW_HEIGHT = 150;
+
     private static final int ICON_WIDTH = 32;
     private static final int ICON_HEIGHT = 32;
     private ImageIcon placeholderIcon;
-    private LocalDate lastMessageDate = null;
 
     public ChatWindow(String email, String documentId) {
-        // Set Dark Mode Theme
         try {
             UIManager.setLookAndFeel(new FlatDarkLaf());
         } catch (Exception ex) {
@@ -60,61 +64,33 @@ public class ChatWindow extends JFrame implements ChatWindowListener {
         setSize(500, 800);
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setLayout(new BorderLayout());
-
         getContentPane().setBackground(new Color(40, 40, 40));
 
-        chatArea = new JTextPane();
-        chatArea.setEditable(false);
-        chatArea.setContentType("text/html");
-        chatArea.setBackground(new Color(60, 60, 60));
-        chatArea.setForeground(Color.WHITE);
-        Font chatFont = new Font(Font.SANS_SERIF, Font.PLAIN, 16);
-        chatArea.setFont(chatFont);
-        chatArea.addMouseListener(new MouseAdapter() {
-            @Override
-            public void mouseClicked(MouseEvent e) {
-                int pos = chatArea.viewToModel2D(e.getPoint());
-                if (pos >= 0) {
-                    StyledDocument doc = chatArea.getStyledDocument();
-                    Element element = doc.getCharacterElement(pos);
-                    AttributeSet as = element.getAttributes();
-                    String fileName = (String) as.getAttribute("hyperlink");
-                    if (fileName != null) {
-                        try {
-                            String url = "https://firebasestorage.googleapis.com/v0/b/fine-rite-443512-n6.appspot.com/o/" + fileName.replace("/", "%2F") + "?alt=media";
-                            Desktop.getDesktop().browse(new URL(url).toURI());
-                        } catch (IOException | URISyntaxException ex) {
-                            ex.printStackTrace();
-                        }
-                    }
-                }
-            }
-        });
-        JScrollPane scrollPane = new JScrollPane(chatArea);
+        messagesPanel = new JPanel();
+        messagesPanel.setLayout(new BoxLayout(messagesPanel, BoxLayout.Y_AXIS));
+        messagesPanel.setBackground(new Color(40, 40, 40));
+
+        scrollPane = new JScrollPane(messagesPanel);
         scrollPane.getViewport().setBackground(new Color(40, 40, 40));
         scrollPane.setBorder(BorderFactory.createEmptyBorder());
+        scrollPane.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
+        add(scrollPane, BorderLayout.CENTER);
 
         JPanel inputPanel = new JPanel(new BorderLayout());
         inputPanel.setBackground(new Color(40, 40, 40));
-
         messageField = new JTextField();
         sendButton = new JButton("Send");
         uploadButton = new JButton("Upload");
-
+        inputPanel.add(uploadButton, BorderLayout.WEST);
         inputPanel.add(messageField, BorderLayout.CENTER);
         inputPanel.add(sendButton, BorderLayout.EAST);
-        inputPanel.add(uploadButton, BorderLayout.WEST);
+        add(inputPanel, BorderLayout.SOUTH);
 
         sendButton.addActionListener(e -> sendMessage());
         messageField.addActionListener(e -> sendMessage());
         uploadButton.addActionListener(e -> uploadFile());
 
-        add(scrollPane, BorderLayout.CENTER);
-        add(inputPanel, BorderLayout.SOUTH);
-
         chatService.addMessageListener(this);
-        chatArea.setText("");
-
         loadInitialMessages();
 
         setLocationRelativeTo(null);
@@ -133,7 +109,8 @@ public class ChatWindow extends JFrame implements ChatWindowListener {
         try {
             InputStream placeholderStream = getClass().getClassLoader().getResourceAsStream("placeholder.png");
             if (placeholderStream != null) {
-                placeholderIcon = new ImageIcon(new ImageIcon(placeholderStream.readAllBytes()).getImage().getScaledInstance(ICON_WIDTH, ICON_HEIGHT, Image.SCALE_SMOOTH));
+                Image image = new ImageIcon(placeholderStream.readAllBytes()).getImage();
+                placeholderIcon = new ImageIcon(image.getScaledInstance(ICON_WIDTH, ICON_HEIGHT, Image.SCALE_SMOOTH));
             } else {
                 System.err.println("Placeholder icon not found");
                 placeholderIcon = null;
@@ -145,128 +122,135 @@ public class ChatWindow extends JFrame implements ChatWindowListener {
         }
     }
 
-    private void appendMessageToChatArea(String senderUsername, String senderDocumentId, String message) {
-        LocalDateTime now = LocalDateTime.now();
-        LocalDate messageDate = now.toLocalDate();
+    private void addMessagePanel(String senderUsername, LocalDateTime messageTimestamp, String message) {
+        JPanel messagePanel = new JPanel(new BorderLayout());
+        messagePanel.setBackground(new Color(60, 60, 60));
+        messagePanel.setBorder(new EmptyBorder(10, 10, 10, 10));
+
+        JLabel iconLabel = new JLabel(placeholderIcon);
+        JPanel leftPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
+        leftPanel.setOpaque(false);
+        leftPanel.add(iconLabel);
+        messagePanel.add(leftPanel, BorderLayout.WEST);
+
+        JPanel textPanel = new JPanel();
+        textPanel.setLayout(new BoxLayout(textPanel, BoxLayout.Y_AXIS));
+        textPanel.setOpaque(false);
+
+        JPanel topRow = new JPanel(new BorderLayout());
+        topRow.setOpaque(false);
+        JLabel usernameLabel = new JLabel(senderUsername);
+        usernameLabel.setForeground(Color.WHITE);
+        usernameLabel.setFont(new Font(Font.SANS_SERIF, Font.BOLD, 16));
+        topRow.add(usernameLabel, BorderLayout.WEST);
         DateTimeFormatter timeFormatter = DateTimeFormatter.ofPattern("HH:mm");
-        String formattedTime = now.format(timeFormatter);
+        JLabel timeLabel = new JLabel(messageTimestamp.format(timeFormatter));
+        timeLabel.setForeground(Color.GRAY);
+        timeLabel.setFont(new Font(Font.SANS_SERIF, Font.PLAIN, 12));
+        topRow.add(timeLabel, BorderLayout.EAST);
+        textPanel.add(topRow);
 
-        try {
-            StyledDocument doc = chatArea.getStyledDocument();
-            SimpleAttributeSet attributes = new SimpleAttributeSet();
-            StyleConstants.setForeground(attributes, Color.WHITE);
+        if (message.startsWith("file:")) {
+            String[] parts = message.split(":", 3);
+            if (parts.length == 3) {
+                String originalName = parts[1];
+                String filePath = parts[2];
+                String extension = originalName.substring(originalName.lastIndexOf('.') + 1).toLowerCase();
+                String bucketName = StorageClient.getInstance().bucket().getName();
+                String encodedFilePath = null;
+                try {
+                     encodedFilePath = URLEncoder.encode(filePath, StandardCharsets.UTF_8.toString()).replace("+", "%20");
+                } catch (UnsupportedEncodingException e){
+                    System.out.println(e.getMessage());
+                }
+                String downloadUrl = "https://storage.googleapis.com/" + bucketName + "/" + encodedFilePath;
 
-            if (lastMessageDate == null || !lastMessageDate.isEqual(messageDate)) {
-                lastMessageDate = messageDate;
-                String formattedDate = messageDate.format(DateTimeFormatter.ofPattern("dd/MM/yyyy"));
-                insertDateSeparator(doc, formattedDate);
-            }
+                if (imageExtensions.contains(extension)) {
+                    JLabel imageLabel = new JLabel("Loading image...");
+                    imageLabel.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+                    textPanel.add(imageLabel);
 
-            ImageIcon userIcon = placeholderIcon;
-            JLabel iconLabel = new JLabel(userIcon);
+                    new SwingWorker<ImageIcon, Void>() {
+                        @Override
+                        protected ImageIcon doInBackground() throws Exception {
+                            URL url = new URL(downloadUrl);
+                            Image image = ImageIO.read(url);
+                            int width = image.getWidth(null);
+                            int maxWidth = 200;
+                            if (width > maxWidth) {
+                                double scale = (double) maxWidth / width;
+                                int newHeight = (int) (image.getHeight(null) * scale);
+                                Image scaledImage = image.getScaledInstance(maxWidth, newHeight, Image.SCALE_SMOOTH);
+                                return new ImageIcon(scaledImage);
+                            }
+                            return new ImageIcon(image);
+                        }
 
-            MutableAttributeSet iconAttributes = new SimpleAttributeSet();
-            StyleConstants.setComponent(iconAttributes, iconLabel);
+                        @Override
+                        protected void done() {
+                            try {
+                                imageLabel.setText(null);
+                                imageLabel.setIcon(get());
+                            } catch (Exception e) {
+                                imageLabel.setText("Failed to load image");
+                            }
+                        }
+                    }.execute();
 
-            SimpleAttributeSet usernameAttributes = new SimpleAttributeSet();
-            StyleConstants.setBold(usernameAttributes, true);
-            StyleConstants.setForeground(usernameAttributes, Color.WHITE);
-
-            SimpleAttributeSet timeAttributes = new SimpleAttributeSet();
-            StyleConstants.setForeground(timeAttributes, Color.GRAY);
-            StyleConstants.setFontSize(timeAttributes, 12);
-
-            MutableAttributeSet paragraphAttributes = new SimpleAttributeSet();
-            StyleConstants.setLeftIndent(paragraphAttributes, 40f);
-            StyleConstants.setSpaceBelow(paragraphAttributes, 5f);
-            doc.setParagraphAttributes(doc.getLength(), 0, paragraphAttributes, false);
-
-            SimpleAttributeSet messageBoxAttributes = new SimpleAttributeSet();
-            StyleConstants.setBackground(messageBoxAttributes, new Color(68, 68, 68));
-            StyleConstants.setLeftIndent(messageBoxAttributes, 5f);
-            StyleConstants.setRightIndent(messageBoxAttributes, 5f);
-            StyleConstants.setSpaceAbove(messageBoxAttributes, 5f);
-            StyleConstants.setSpaceBelow(messageBoxAttributes, 5f);
-
-            doc.insertString(doc.getLength(), " ", iconAttributes);
-            doc.insertString(doc.getLength(), "  " + senderUsername + "  ", usernameAttributes);
-            doc.insertString(doc.getLength(), formattedTime + "\n", timeAttributes);
-
-            int start = doc.getLength();
-            if (message.contains(".")) {
-                String fileExtension = message.substring(message.lastIndexOf(".") + 1).toLowerCase();
-                String originalFileName = getOriginalFileName(message);
-                if (imageExtensions.contains(fileExtension)) {
-                    addImagePreview(message, doc);
+                    imageLabel.addMouseListener(new MouseAdapter() {
+                        @Override
+                        public void mouseClicked(MouseEvent e) {
+                            try {
+                                Desktop.getDesktop().browse(new URI(downloadUrl));
+                            } catch (Exception ex) {
+                                ex.printStackTrace();
+                            }
+                        }
+                    });
                 } else {
-                    MutableAttributeSet linkAttributes = new SimpleAttributeSet();
-                    StyleConstants.setForeground(linkAttributes, Color.CYAN);
-                    StyleConstants.setUnderline(linkAttributes, true);
-                    linkAttributes.addAttribute("hyperlink", message);
-                    doc.insertString(doc.getLength(), originalFileName + "\n", attributes);
-                    doc.insertString(doc.getLength(), "[Download File]", linkAttributes);
-                    doc.setCharacterAttributes(doc.getLength() - ("[Download File]").length(), ("[Download File]").length(), linkAttributes, false);
-                    doc.insertString(doc.getLength(), "\n", attributes);
+                    JLabel linkLabel = new JLabel("<html><a href='#'>" + originalName + "</a></html>");
+                    linkLabel.setForeground(Color.BLUE);
+                    linkLabel.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+                    linkLabel.addMouseListener(new MouseAdapter() {
+                        @Override
+                        public void mouseClicked(MouseEvent e) {
+                            try {
+                                Desktop.getDesktop().browse(new URI(downloadUrl));
+                            } catch (Exception ex) {
+                                ex.printStackTrace();
+                            }
+                        }
+                    });
+                    textPanel.add(linkLabel);
                 }
             } else {
-                doc.insertString(doc.getLength(), message + "\n", attributes);
+                JTextArea messageArea = createMessageArea(message);
+                textPanel.add(messageArea);
             }
-            int end = doc.getLength();
-
-            doc.setCharacterAttributes(start, end - start, messageBoxAttributes, false);
-
-        } catch (BadLocationException e) {
-            e.printStackTrace();
         }
+
+        messagePanel.add(textPanel, BorderLayout.CENTER);
+        messagesPanel.add(messagePanel);
+        messagesPanel.add(Box.createVerticalStrut(10));
+        messagesPanel.revalidate();
+
+        SwingUtilities.invokeLater(() -> {
+            JScrollBar vertical = scrollPane.getVerticalScrollBar();
+            vertical.setValue(vertical.getMaximum());
+        });
     }
 
-    private void insertDateSeparator(StyledDocument doc, String formattedDate) throws BadLocationException {
-        SimpleAttributeSet separatorAttributes = new SimpleAttributeSet();
-        StyleConstants.setForeground(separatorAttributes, Color.GRAY);
-        StyleConstants.setBold(separatorAttributes, true);
-        StyleConstants.setAlignment(separatorAttributes, StyleConstants.ALIGN_CENTER);
-        StyleConstants.setSpaceAbove(separatorAttributes, 10f);
-        StyleConstants.setSpaceBelow(separatorAttributes, 10f);
-
-        String separatorLine = "------------------ " + formattedDate + " ------------------";
-        doc.insertString(doc.getLength(), separatorLine + "\n", separatorAttributes);
-    }
-
-    private String getOriginalFileName(String fullFileName) {
-        String[] parts = fullFileName.split("_", 2);
-        if (parts.length > 1) {
-            return parts[1];
-        }
-        return fullFileName;
-    }
-
-    private void addImagePreview(String fileName, StyledDocument doc) throws BadLocationException {
-        try {
-            String url = "https://firebasestorage.googleapis.com/v0/b/fine-rite-443512-n6.appspot.com/o/" + fileName.replace("/", "%2F") + "?alt=media";
-            ImageIcon imageIcon = new ImageIcon(new URL(url));
-            Image image = imageIcon.getImage();
-
-            double widthRatio = (double) PREVIEW_WIDTH / image.getWidth(null);
-            double heightRatio = (double) PREVIEW_HEIGHT / image.getHeight(null);
-            double scaleRatio = Math.min(widthRatio, heightRatio);
-
-            int newWidth = (int) (image.getWidth(null) * scaleRatio);
-            int newHeight = (int) (image.getHeight(null) * scaleRatio);
-
-            Image scaledImage = image.getScaledInstance(newWidth, newHeight, Image.SCALE_SMOOTH);
-            ImageIcon scaledImageIcon = new ImageIcon(scaledImage);
-            JLabel imageLabel = new JLabel(scaledImageIcon);
-            MutableAttributeSet imageAttributes = new SimpleAttributeSet();
-            StyleConstants.setComponent(imageAttributes, imageLabel);
-            SimpleAttributeSet attributes = new SimpleAttributeSet();
-            doc.insertString(doc.getLength(), " ", imageAttributes);
-            imageAttributes.addAttribute("hyperlink", fileName);
-            doc.setCharacterAttributes(doc.getLength() - 1, 1, imageAttributes, false);
-            doc.insertString(doc.getLength(), "\n", attributes);
-            doc.insertString(doc.getLength(), " \n", attributes);
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
+    private JTextArea createMessageArea(String message) {
+        JTextArea messageArea = new JTextArea(message);
+        messageArea.setEditable(false);
+        messageArea.setLineWrap(true);
+        messageArea.setWrapStyleWord(true);
+        messageArea.setBackground(new Color(60, 60, 60));
+        messageArea.setForeground(Color.WHITE);
+        messageArea.setFont(new Font(Font.SANS_SERIF, Font.PLAIN, 16));
+        messageArea.setBorder(null);
+        messageArea.setMargin(new Insets(5, 0, 0, 0));
+        return messageArea;
     }
 
     private String fetchUsername(String documentId) {
@@ -275,7 +259,7 @@ public class ChatWindow extends JFrame implements ChatWindowListener {
             return userRecord.getDisplayName();
         } catch (Exception e) {
             e.printStackTrace();
-            return null;
+            return "Unknown";
         }
     }
 
@@ -287,14 +271,21 @@ public class ChatWindow extends JFrame implements ChatWindowListener {
             try {
                 String contentType = Files.probeContentType(selectedFile.toPath());
                 String fileName = "user_uploaded_files/" + UUID.randomUUID().toString() + "_" + selectedFile.getName();
+                String originalName = selectedFile.getName();
 
-                BlobInfo blobInfo = BlobInfo.newBuilder(StorageClient.getInstance().bucket().getName(), fileName)
-                        .setContentType(contentType)
-                        .build();
+                String disposition = "attachment; filename=\"" + originalName + "\"";
 
-                StorageClient.getInstance().bucket().getStorage().create(blobInfo, Files.readAllBytes(selectedFile.toPath()));
+                StorageClient.getInstance().bucket().getStorage().create(
+                        com.google.cloud.storage.BlobInfo.newBuilder(StorageClient.getInstance().bucket().getName(), fileName)
+                                .setContentType(contentType)
+                                .setContentDisposition(disposition)
+                                .setAcl(Arrays.asList(com.google.cloud.storage.Acl.of(com.google.cloud.storage.Acl.User.ofAllUsers(), com.google.cloud.storage.Acl.Role.READER)))
+                                .build(),
+                        Files.readAllBytes(selectedFile.toPath())
+                );
 
-                chatService.sendMessage(email, username, fileName);
+                String message = "file:" + originalName + ":" + fileName;
+                chatService.sendMessage(email, username, message);
             } catch (IOException e) {
                 e.printStackTrace();
                 JOptionPane.showMessageDialog(this, "Failed to upload file", "Error", JOptionPane.ERROR_MESSAGE);
@@ -303,28 +294,24 @@ public class ChatWindow extends JFrame implements ChatWindowListener {
     }
 
     @Override
-    public void onNewMessage(String username, String message) {
-        String senderDocumentId = chatService.getDocumentIdByUsername(username);
+    public void onNewMessage(String senderUsername, String message) {
         SwingUtilities.invokeLater(() -> {
-            appendMessageToChatArea(username, senderDocumentId, message);
+            addMessagePanel(senderUsername, LocalDateTime.now(), message);
         });
     }
 
     private void loadInitialMessages() {
-        List<Map<String, Object>> messages = FirestoreUtil.getLatestMessages(50);
+        List<Map<String, Object>> messages = FirestoreUtil.getLatestMessages(10);
         if (!messages.isEmpty()) {
-            Map<String, Object> firstMessage = messages.get(0);
-            LocalDateTime firstMessageDateTime = ((Timestamp) firstMessage.get("timestamp")).toSqlTimestamp().toLocalDateTime();
-            lastMessageDate = firstMessageDateTime.toLocalDate();
             for (int i = messages.size() - 1; i >= 0; i--) {
                 Map<String, Object> message = messages.get(i);
                 String senderId = (String) message.get("senderId");
                 String senderUsername = (String) message.get("username");
                 String messageContent = (String) message.get("message");
-                appendMessageToChatArea(senderUsername, senderId, messageContent);
+                LocalDateTime messageTimestamp = ((Timestamp) message.get("timestamp"))
+                        .toSqlTimestamp().toLocalDateTime();
+                addMessagePanel(senderUsername, messageTimestamp, messageContent);
             }
-        } else {
-            lastMessageDate = LocalDate.now();
         }
     }
 }
