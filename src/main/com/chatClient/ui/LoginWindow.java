@@ -2,6 +2,7 @@ package main.com.chatClient.ui;
 
 import com.formdev.flatlaf.FlatDarkLaf;
 import main.com.chatClient.auth.FirebaseAuthClient;
+import main.com.chatClient.config.FirebaseConfig;
 import main.com.chatClient.database.FirestoreUtil;
 
 import javax.swing.*;
@@ -13,7 +14,6 @@ import java.awt.event.MouseEvent;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.Map;
-
 
 public class LoginWindow extends JFrame {
     private JTextField emailFieldLogin;
@@ -30,8 +30,10 @@ public class LoginWindow extends JFrame {
     private CardLayout cardLayout;
     private JPanel mainPanel;
     private String documentId;
+    private String username;
 
     public LoginWindow() {
+        FirebaseConfig.initialize();
         try {
             UIManager.setLookAndFeel(new FlatDarkLaf());
         } catch (Exception ex) {
@@ -104,7 +106,7 @@ public class LoginWindow extends JFrame {
         panel.add(passwordFieldLogin, gbc);
 
         loginButton = new JButton("Login");
-        gbc.insets = new Insets(20,20,2,20);
+        gbc.insets = new Insets(20, 20, 2, 20);
         gbc.gridx = 0;
         gbc.gridy = 4;
         panel.add(loginButton, gbc);
@@ -116,7 +118,6 @@ public class LoginWindow extends JFrame {
         gbc.gridy = 5;
         panel.add(switchToRegisterLabel, gbc);
 
-        // Button Actions
         loginButton.addActionListener(e -> login());
         switchToRegisterLabel.addMouseListener(new MouseAdapter() {
             @Override
@@ -144,7 +145,6 @@ public class LoginWindow extends JFrame {
         gbc.fill = GridBagConstraints.HORIZONTAL;
         gbc.weightx = 1.0;
 
-        // Username
         JLabel usernameLabel = new JLabel("Username:");
         usernameLabel.setForeground(Color.WHITE);
         gbc.gridx = 0;
@@ -156,7 +156,6 @@ public class LoginWindow extends JFrame {
         gbc.gridy = 1;
         panel.add(usernameField, gbc);
 
-        // Email
         JLabel emailLabel = new JLabel("Email:");
         emailLabel.setForeground(Color.WHITE);
         gbc.gridx = 0;
@@ -168,7 +167,6 @@ public class LoginWindow extends JFrame {
         gbc.gridy = 3;
         panel.add(emailFieldRegister, gbc);
 
-        // Password
         JLabel passwordLabel = new JLabel("Password:");
         passwordLabel.setForeground(Color.WHITE);
         gbc.gridx = 0;
@@ -180,14 +178,12 @@ public class LoginWindow extends JFrame {
         gbc.gridy = 5;
         panel.add(passwordFieldRegister, gbc);
 
-        // Register Button
         registerButton = new JButton("Register");
-        gbc.insets = new Insets(20,20,2,20);
+        gbc.insets = new Insets(20, 20, 2, 20);
         gbc.gridx = 0;
         gbc.gridy = 7;
         panel.add(registerButton, gbc);
 
-        // Switch to Login Label
         switchToLoginLabel = new JLabel("<html><div style='text-align: center;'>Already have an account? <a href='#'>Login</a></div></html>");
         switchToLoginLabel.setForeground(Color.CYAN);
         switchToLoginLabel.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
@@ -195,7 +191,6 @@ public class LoginWindow extends JFrame {
         gbc.gridy = 8;
         panel.add(switchToLoginLabel, gbc);
 
-        // Button Actions
         registerButton.addActionListener(e -> register());
         switchToLoginLabel.addMouseListener(new MouseAdapter() {
             @Override
@@ -228,9 +223,10 @@ public class LoginWindow extends JFrame {
         if (loginResult != null) {
             String idToken = loginResult.get("idToken");
             this.documentId = loginResult.get("documentId");
+            this.username = FirestoreUtil.getUsername(documentId);
             JOptionPane.showMessageDialog(this, "Login successful!");
             this.dispose();
-            new ChatWindow(email, documentId);
+            new ChatWindow(email, documentId, username);
         } else {
             JOptionPane.showMessageDialog(this, "Invalid credentials!", "Error", JOptionPane.ERROR_MESSAGE);
         }
@@ -246,15 +242,6 @@ public class LoginWindow extends JFrame {
             return;
         }
 
-        if (FirebaseAuthClient.usernameExists(username)) {
-            JOptionPane.showMessageDialog(this, "Username already exists!", "Error", JOptionPane.ERROR_MESSAGE);
-            return;
-        }
-
-        if (FirebaseAuthClient.emailExists(email)) {
-            JOptionPane.showMessageDialog(this, "Email already exists!", "Error", JOptionPane.ERROR_MESSAGE);
-            return;
-        }
         String idToken = FirebaseAuthClient.registerUser(email, password, username);
         if (idToken != null) {
             JOptionPane.showMessageDialog(this, "Registration successful!");
@@ -265,12 +252,7 @@ public class LoginWindow extends JFrame {
     }
 
     public static void main(String[] args) {
-        try {
-            FirestoreUtil.initialize();
-        } catch (IOException e) {
-            e.printStackTrace();
-            System.err.println("Failed to initialize Firestore");
-        }
+        FirebaseConfig.initialize();
         SwingUtilities.invokeLater(LoginWindow::new);
     }
 }

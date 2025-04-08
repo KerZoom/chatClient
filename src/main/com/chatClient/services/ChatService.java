@@ -1,16 +1,11 @@
 package main.com.chatClient.services;
 
-import com.google.auth.oauth2.GoogleCredentials;
 import com.google.cloud.firestore.DocumentChange;
 import com.google.cloud.firestore.DocumentSnapshot;
 import com.google.cloud.firestore.Firestore;
-import com.google.firebase.FirebaseApp;
-import com.google.firebase.FirebaseOptions;
-import com.google.firebase.cloud.FirestoreClient;
+import com.google.cloud.firestore.Query;
 import main.com.chatClient.database.FirestoreUtil;
 
-import java.io.FileInputStream;
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -20,31 +15,19 @@ public class ChatService {
     private final Firestore db;
 
     public ChatService() {
-        try {
-            FileInputStream serviceAccount = new FileInputStream("firebase-adminsdk.json");
-            FirebaseOptions options = new FirebaseOptions.Builder()
-                    .setCredentials(GoogleCredentials.fromStream(serviceAccount))
-                    .build();
-            if (FirebaseApp.getApps().isEmpty()) {
-                FirebaseApp.initializeApp(options);
-            }
-            this.db = FirestoreClient.getFirestore();
-            setupMessageListener();
-        } catch (IOException e) {
-            System.err.println("Failed to initialize Firebase: " + e.getMessage());
-            throw new RuntimeException("Firebase initialization failed", e);
-        }
+        this.db = FirestoreUtil.getFirestore();
+        setupMessageListener();
     }
 
     private void setupMessageListener() {
         db.collection("messages")
-                .orderBy("timestamp")
+                .orderBy("timestamp", Query.Direction.ASCENDING)
                 .addSnapshotListener((snapshot, e) -> {
                     if (e != null) {
                         System.err.println("Listen failed: " + e);
                         return;
                     }
-                    if (snapshot != null) {
+                    if (snapshot != null && !snapshot.isEmpty()) {
                         for (DocumentChange dc : snapshot.getDocumentChanges()) {
                             if (dc.getType() == DocumentChange.Type.ADDED) {
                                 Map<String, Object> messageData = dc.getDocument().getData();
@@ -59,10 +42,6 @@ public class ChatService {
 
     public void addMessageListener(ChatWindowListener listener) {
         messageListeners.add(listener);
-    }
-
-    public void removeMessageListener(ChatWindowListener listener) {
-        messageListeners.remove(listener);
     }
 
     private void notifyNewMessage(String username, String message) {

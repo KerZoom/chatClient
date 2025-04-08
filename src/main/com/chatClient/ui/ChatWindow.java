@@ -2,9 +2,10 @@ package main.com.chatClient.ui;
 
 import com.formdev.flatlaf.FlatDarkLaf;
 import com.google.cloud.Timestamp;
-import com.google.firebase.auth.FirebaseAuth;
-import com.google.firebase.auth.UserRecord;
-import com.google.firebase.cloud.StorageClient;
+import com.google.cloud.firestore.DocumentSnapshot;
+import com.google.cloud.storage.BlobInfo;
+import com.google.cloud.storage.Storage;
+import main.com.chatClient.config.FirebaseConfig;
 import main.com.chatClient.database.FirestoreUtil;
 import main.com.chatClient.services.ChatService;
 import main.com.chatClient.services.ChatWindowListener;
@@ -26,10 +27,8 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
-import java.util.Arrays;
+import java.util.*;
 import java.util.List;
-import java.util.Map;
-import java.util.UUID;
 
 public class ChatWindow extends JFrame implements ChatWindowListener {
 
@@ -39,7 +38,7 @@ public class ChatWindow extends JFrame implements ChatWindowListener {
     private final JButton sendButton;
     private final JButton uploadButton;
 
-    private String username;
+    private final String username;
     private final String email;
     private final ChatService chatService;
     private final List<String> imageExtensions = Arrays.asList("png", "jpg", "jpeg", "gif", "webp");
@@ -48,7 +47,16 @@ public class ChatWindow extends JFrame implements ChatWindowListener {
     private static final int ICON_HEIGHT = 32;
     private ImageIcon placeholderIcon;
 
-    public ChatWindow(String email, String documentId) {
+    private static final int MESSAGES_PER_PAGE = 10;
+    private DocumentSnapshot lastVisible;
+    private boolean isLoading = false;
+    private boolean allMessagesLoaded = false;
+    private final List<JPanel> messagePanels = new ArrayList<>();
+    private int test = 0;
+
+    private boolean initialLoadComplete = false;
+
+    public ChatWindow(String email, String documentId, String username) {
         try {
             UIManager.setLookAndFeel(new FlatDarkLaf());
         } catch (Exception ex) {
@@ -56,9 +64,9 @@ public class ChatWindow extends JFrame implements ChatWindowListener {
         }
         this.email = email;
         this.chatService = new ChatService();
+        this.username = username;
 
         loadPlaceholderIcon();
-        this.username = fetchUsername(documentId);
 
         setTitle("Chat - " + username);
         setSize(500, 800);
@@ -91,7 +99,6 @@ public class ChatWindow extends JFrame implements ChatWindowListener {
         uploadButton.addActionListener(e -> uploadFile());
 
         chatService.addMessageListener(this);
-        loadInitialMessages();
 
         setLocationRelativeTo(null);
         setVisible(true);
@@ -122,7 +129,9 @@ public class ChatWindow extends JFrame implements ChatWindowListener {
         }
     }
 
-    private void addMessagePanel(String senderUsername, LocalDateTime messageTimestamp, String message) {
+    private JPanel createMessagePanel(String senderUsername, LocalDateTime messageTimestamp, String message) {
+        test++;
+        System.out.println(test);
         JPanel messagePanel = new JPanel(new BorderLayout());
         messagePanel.setBackground(new Color(60, 60, 60));
         messagePanel.setBorder(new EmptyBorder(10, 10, 10, 10));
@@ -156,10 +165,10 @@ public class ChatWindow extends JFrame implements ChatWindowListener {
                 String originalName = parts[1];
                 String filePath = parts[2];
                 String extension = originalName.substring(originalName.lastIndexOf('.') + 1).toLowerCase();
-                String bucketName = StorageClient.getInstance().bucket().getName();
+                String bucketName = FirebaseConfig.STORAGE_BUCKET;
                 String encodedFilePath = null;
                 try {
-                     encodedFilePath = URLEncoder.encode(filePath, StandardCharsets.UTF_8.toString()).replace("+", "%20");
+                    encodedFilePath = URLEncoder.encode(filePath, StandardCharsets.UTF_8.toString()).replace("+", "%20");
                 } catch (UnsupportedEncodingException e){
                     System.out.println(e.getMessage());
                 }
@@ -233,14 +242,26 @@ public class ChatWindow extends JFrame implements ChatWindowListener {
         }
 
         messagePanel.add(textPanel, BorderLayout.CENTER);
-        messagesPanel.add(messagePanel);
-        messagesPanel.add(Box.createVerticalStrut(10));
-        messagesPanel.revalidate();
+        return messagePanel;
+    }
 
-        SwingUtilities.invokeLater(() -> {
-            JScrollBar vertical = scrollPane.getVerticalScrollBar();
-            vertical.setValue(vertical.getMaximum());
-        });
+    private void addMessagePanel(String senderUsername, LocalDateTime messageTimestamp, String message, boolean isNewMessage) {
+        JPanel messagePanel = createMessagePanel(senderUsername, messageTimestamp, message);
+        if (isNewMessage) {
+            messagesPanel.add(messagePanel);
+            messagesPanel.add(Box.createVerticalStrut(10));
+        } else {
+            messagesPanel.add(messagePanel, 0);
+            messagesPanel.add(Box.createVerticalStrut(10), 0);
+        }
+        messagePanels.add(messagePanel);
+        messagesPanel.revalidate();
+        if (isNewMessage) {
+            SwingUtilities.invokeLater(() -> {
+                JScrollBar vertical = scrollPane.getVerticalScrollBar();
+                vertical.setValue(vertical.getMaximum());
+            });
+        }
     }
 
     private JTextArea createMessageArea(String message) {
@@ -256,16 +277,6 @@ public class ChatWindow extends JFrame implements ChatWindowListener {
         return messageArea;
     }
 
-    private String fetchUsername(String documentId) {
-        try {
-            UserRecord userRecord = FirebaseAuth.getInstance().getUser(documentId);
-            return userRecord.getDisplayName();
-        } catch (Exception e) {
-            e.printStackTrace();
-            return "Unknown";
-        }
-    }
-
     private void uploadFile() {
         JFileChooser fileChooser = new JFileChooser();
         int result = fileChooser.showOpenDialog(this);
@@ -278,17 +289,15 @@ public class ChatWindow extends JFrame implements ChatWindowListener {
 
                 String disposition = "attachment; filename=\"" + originalName + "\"";
 
-                StorageClient.getInstance().bucket().getStorage().create(
-                        com.google.cloud.storage.BlobInfo.newBuilder(StorageClient.getInstance().bucket().getName(), fileName)
-                                .setContentType(contentType)
-                                .setContentDisposition(disposition)
-                                .setAcl(Arrays.asList(com.google.cloud.storage.Acl.of(com.google.cloud.storage.Acl.User.ofAllUsers(), com.google.cloud.storage.Acl.Role.READER)))
-                                .build(),
-                        Files.readAllBytes(selectedFile.toPath())
-                );
+                Storage storage = FirebaseConfig.getStorage();
+                BlobInfo blobInfo = BlobInfo.newBuilder(FirebaseConfig.STORAGE_BUCKET, fileName)
+                        .setContentType(contentType)
+                        .setContentDisposition(disposition)
+                        .setAcl(Arrays.asList(com.google.cloud.storage.Acl.of(com.google.cloud.storage.Acl.User.ofAllUsers(), com.google.cloud.storage.Acl.Role.READER)))
+                        .build();
 
-                String message = "file:" + originalName + ":" + fileName;
-                chatService.sendMessage(email, username, message);
+                storage.create(blobInfo, Files.readAllBytes(selectedFile.toPath()));
+                chatService.sendMessage(email, username, "file:" + originalName + ":" + fileName);
             } catch (IOException e) {
                 e.printStackTrace();
                 JOptionPane.showMessageDialog(this, "Failed to upload file", "Error", JOptionPane.ERROR_MESSAGE);
@@ -299,22 +308,25 @@ public class ChatWindow extends JFrame implements ChatWindowListener {
     @Override
     public void onNewMessage(String senderUsername, String message) {
         SwingUtilities.invokeLater(() -> {
-            addMessagePanel(senderUsername, LocalDateTime.now(), message);
+            addMessagePanel(senderUsername, LocalDateTime.now(), message, true);
         });
     }
 
-    private void loadInitialMessages() {
-        List<Map<String, Object>> messages = FirestoreUtil.getLatestMessages(10);
-        if (!messages.isEmpty()) {
-            for (int i = messages.size() - 1; i >= 0; i--) {
-                Map<String, Object> message = messages.get(i);
-                String senderId = (String) message.get("senderId");
-                String senderUsername = (String) message.get("username");
-                String messageContent = (String) message.get("message");
-                LocalDateTime messageTimestamp = ((Timestamp) message.get("timestamp"))
-                        .toSqlTimestamp().toLocalDateTime();
-                addMessagePanel(senderUsername, messageTimestamp, messageContent);
-            }
+    private void loadAllMessages() {
+        List<Map<String, Object>> messages = FirestoreUtil.getAllMessages();
+        for (Map<String, Object> message : messages) {
+            String senderUsername = (String) message.get("username");
+            String messageContent = (String) message.get("message");
+            LocalDateTime messageTimestamp = ((Timestamp) message.get("timestamp"))
+                    .toSqlTimestamp()
+                    .toLocalDateTime();
+
+            addMessagePanel(senderUsername, messageTimestamp, messageContent, true);
         }
+
+        SwingUtilities.invokeLater(() -> {
+            JScrollBar vertical = scrollPane.getVerticalScrollBar();
+            vertical.setValue(vertical.getMaximum());
+        });
     }
 }
