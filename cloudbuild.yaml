@@ -1,6 +1,6 @@
 steps:
-  # Build the JAR using JDK21
-  - name: 'gcr.io/cloud-builders/mvn:jdk-21'
+  # Build the JAR using the latest maven version on docker
+  - name: 'gcr.io/cloud-builders/mvn:latest'
     args: ['clean', 'package']
     id: 'build'
 
