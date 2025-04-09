@@ -1,15 +1,15 @@
 steps:
-  # Build the JAR using
-  - name: 'eclipse-temurin:21-jdk-jammy'
-    args: ['clean', 'package', '-Dmaven.test.skip=true']
+  # Debug: Check Java version
+  - name: 'gcr.io/cloud-builders/mvn:jdk-21'
+    args: ['--version']
+    id: 'debug-jdk'
+  # Build with verbose output
+  - name: 'gcr.io/cloud-builders/mvn:jdk-21'
+    args: ['clean', 'package', '-X']
     id: 'build'
-
-  # Move built JAR file to the chat_clients bucket
   - name: 'gcr.io/cloud-builders/gsutil'
     args: ['cp', 'target/Chat_Client-2.0-ALPHA.jar', 'gs://$_BUCKET_NAME/Chat_Client-$BUILD_ID.jar']
     id: 'upload-jar'
-
-  # Send notification that a new build is ready
   - name: 'gcr.io/cloud-builders/gcloud'
     args:
       - 'pubsub'
