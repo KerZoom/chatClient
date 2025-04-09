@@ -1,7 +1,6 @@
 package main.com.chatClient.services;
 
 import com.google.cloud.firestore.DocumentChange;
-import com.google.cloud.firestore.DocumentSnapshot;
 import com.google.cloud.firestore.Firestore;
 import com.google.cloud.firestore.Query;
 import main.com.chatClient.database.FirestoreUtil;
@@ -50,13 +49,9 @@ public class ChatService {
         }
     }
 
-    public void sendMessage(String email, String username, String message) {
-        DocumentSnapshot userDoc = FirestoreUtil.getUserByEmail(email);
-        if (userDoc != null && userDoc.exists()) {
-            String senderId = userDoc.getId();
-            FirestoreUtil.addMessage(message, senderId, username);
-        } else {
-            System.err.println("User not found with email: " + email);
-        }
+    public void sendMessage(String uid, String username, String message) {
+        System.out.println("Message sending: " + message + " by " + uid + " (" + username + ")....");
+        FirestoreUtil.addMessage(message, uid, username);
+        System.out.println("Message sent: " + message + " by " + uid + " (" + username + ")");
     }
 }
