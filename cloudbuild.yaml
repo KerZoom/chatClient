@@ -1,10 +1,8 @@
 steps:
-  # Debug: Check Java version
-  - name: 'gcr.io/cloud-builders/mvn:jdk-21'
+  - name: 'maven:3.9.6-eclipse-temurin-21'
     args: ['--version']
     id: 'debug-jdk'
-  # Build with verbose output
-  - name: 'gcr.io/cloud-builders/mvn:jdk-21'
+  - name: 'maven:3.9.6-eclipse-temurin-21'
     args: ['clean', 'package', '-X']
     id: 'build'
   - name: 'gcr.io/cloud-builders/gsutil'
