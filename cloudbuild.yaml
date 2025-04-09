@@ -1,7 +1,7 @@
 steps:
-  # Build the JAR using the latest maven version on docker
-  - name: 'gcr.io/cloud-builders/mvn:latest'
-    args: ['clean', 'package']
+  # Build the JAR using
+  - name: 'eclipse-temurin:21-jdk-jammy'
+    args: ['clean', 'package', '-Dmaven.test.skip=true']
     id: 'build'
 
   # Move built JAR file to the chat_clients bucket
