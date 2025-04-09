@@ -29,11 +29,10 @@ public class LoginWindow extends JFrame {
     private JPanel registerPanel;
     private CardLayout cardLayout;
     private JPanel mainPanel;
-    private String documentId;
+    private String uid;
     private String username;
 
     public LoginWindow() {
-        FirebaseConfig.initialize();
         try {
             UIManager.setLookAndFeel(new FlatDarkLaf());
         } catch (Exception ex) {
@@ -192,6 +191,7 @@ public class LoginWindow extends JFrame {
         panel.add(switchToLoginLabel, gbc);
 
         registerButton.addActionListener(e -> register());
+
         switchToLoginLabel.addMouseListener(new MouseAdapter() {
             @Override
             public void mouseClicked(MouseEvent e) {
@@ -222,11 +222,12 @@ public class LoginWindow extends JFrame {
         Map<String, String> loginResult = FirebaseAuthClient.loginUser(email, password);
         if (loginResult != null) {
             String idToken = loginResult.get("idToken");
-            this.documentId = loginResult.get("documentId");
-            this.username = FirestoreUtil.getUsername(documentId);
+            this.uid = loginResult.get("uid");
+            System.out.println("LoginWindow " + loginResult);
+            FirebaseConfig.initialize(idToken);
             JOptionPane.showMessageDialog(this, "Login successful!");
             this.dispose();
-            new ChatWindow(email, documentId, username);
+            new ChatWindow(email, uid, username);
         } else {
             JOptionPane.showMessageDialog(this, "Invalid credentials!", "Error", JOptionPane.ERROR_MESSAGE);
         }
@@ -243,6 +244,12 @@ public class LoginWindow extends JFrame {
         }
 
         String idToken = FirebaseAuthClient.registerUser(email, password, username);
+        System.out.println("RegisterWindow " + idToken);
+        if (idToken != null) {
+            FirebaseConfig.initialize(idToken);
+            FirestoreUtil.addUser(idToken, username, email);
+        }
+
         if (idToken != null) {
             JOptionPane.showMessageDialog(this, "Registration successful!");
             cardLayout.show(mainPanel, "login");
@@ -252,7 +259,6 @@ public class LoginWindow extends JFrame {
     }
 
     public static void main(String[] args) {
-        FirebaseConfig.initialize();
         SwingUtilities.invokeLater(LoginWindow::new);
     }
 }

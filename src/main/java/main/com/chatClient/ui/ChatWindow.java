@@ -2,7 +2,6 @@ package main.com.chatClient.ui;
 
 import com.formdev.flatlaf.FlatDarkLaf;
 import com.google.cloud.Timestamp;
-import com.google.cloud.firestore.DocumentSnapshot;
 import com.google.cloud.storage.BlobInfo;
 import com.google.cloud.storage.Storage;
 import main.com.chatClient.config.FirebaseConfig;
@@ -19,7 +18,6 @@ import java.awt.event.MouseEvent;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.UnsupportedEncodingException;
 import java.net.URI;
 import java.net.URL;
 import java.net.URLEncoder;
@@ -46,15 +44,7 @@ public class ChatWindow extends JFrame implements ChatWindowListener {
     private static final int ICON_WIDTH = 32;
     private static final int ICON_HEIGHT = 32;
     private ImageIcon placeholderIcon;
-
-    private static final int MESSAGES_PER_PAGE = 10;
-    private DocumentSnapshot lastVisible;
-    private boolean isLoading = false;
     private boolean allMessagesLoaded = false;
-    private final List<JPanel> messagePanels = new ArrayList<>();
-    private int test = 0;
-
-    private boolean initialLoadComplete = false;
 
     public ChatWindow(String email, String documentId, String username) {
         try {
@@ -99,6 +89,7 @@ public class ChatWindow extends JFrame implements ChatWindowListener {
         uploadButton.addActionListener(e -> uploadFile());
 
         chatService.addMessageListener(this);
+        loadAllMessages();
 
         setLocationRelativeTo(null);
         setVisible(true);
@@ -130,8 +121,6 @@ public class ChatWindow extends JFrame implements ChatWindowListener {
     }
 
     private JPanel createMessagePanel(String senderUsername, LocalDateTime messageTimestamp, String message) {
-        test++;
-        System.out.println(test);
         JPanel messagePanel = new JPanel(new BorderLayout());
         messagePanel.setBackground(new Color(60, 60, 60));
         messagePanel.setBorder(new EmptyBorder(10, 10, 10, 10));
@@ -167,11 +156,7 @@ public class ChatWindow extends JFrame implements ChatWindowListener {
                 String extension = originalName.substring(originalName.lastIndexOf('.') + 1).toLowerCase();
                 String bucketName = FirebaseConfig.STORAGE_BUCKET;
                 String encodedFilePath = null;
-                try {
-                    encodedFilePath = URLEncoder.encode(filePath, StandardCharsets.UTF_8.toString()).replace("+", "%20");
-                } catch (UnsupportedEncodingException e){
-                    System.out.println(e.getMessage());
-                }
+                encodedFilePath = URLEncoder.encode(filePath, StandardCharsets.UTF_8).replace("+", "%20");
                 String downloadUrl = "https://storage.googleapis.com/" + bucketName + "/" + encodedFilePath;
 
                 if (imageExtensions.contains(extension)) {
@@ -254,7 +239,6 @@ public class ChatWindow extends JFrame implements ChatWindowListener {
             messagesPanel.add(messagePanel, 0);
             messagesPanel.add(Box.createVerticalStrut(10), 0);
         }
-        messagePanels.add(messagePanel);
         messagesPanel.revalidate();
         if (isNewMessage) {
             SwingUtilities.invokeLater(() -> {
@@ -312,21 +296,23 @@ public class ChatWindow extends JFrame implements ChatWindowListener {
         });
     }
 
+    private void loadInitialMessages() {
+        loadAllMessages();
+    }
+
     private void loadAllMessages() {
         List<Map<String, Object>> messages = FirestoreUtil.getAllMessages();
-        for (Map<String, Object> message : messages) {
-            String senderUsername = (String) message.get("username");
-            String messageContent = (String) message.get("message");
-            LocalDateTime messageTimestamp = ((Timestamp) message.get("timestamp"))
-                    .toSqlTimestamp()
-                    .toLocalDateTime();
-
-            addMessagePanel(senderUsername, messageTimestamp, messageContent, true);
+        if (!messages.isEmpty()) {
+            Collections.reverse(messages);
+            for (Map<String, Object> message : messages) {
+                String senderId = (String) message.get("senderId");
+                String senderUsername = (String) message.get("username");
+                String messageContent = (String) message.get("message");
+                LocalDateTime messageTimestamp = ((Timestamp) message.get("timestamp")).toSqlTimestamp().toLocalDateTime();
+                addMessagePanel(senderUsername, messageTimestamp, messageContent, false);
+            }
+        } else {
+            allMessagesLoaded = true;
         }
-
-        SwingUtilities.invokeLater(() -> {
-            JScrollBar vertical = scrollPane.getVerticalScrollBar();
-            vertical.setValue(vertical.getMaximum());
-        });
     }
 }

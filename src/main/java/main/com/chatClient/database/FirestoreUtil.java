@@ -1,8 +1,10 @@
 package main.com.chatClient.database;
 
 import com.google.api.core.ApiFuture;
-import com.google.cloud.Timestamp;
-import com.google.cloud.firestore.*;
+import com.google.cloud.firestore.DocumentSnapshot;
+import com.google.cloud.firestore.Firestore;
+import com.google.cloud.firestore.Query;
+import com.google.cloud.firestore.QuerySnapshot;
 import main.com.chatClient.config.FirebaseConfig;
 
 import java.util.ArrayList;
@@ -23,36 +25,46 @@ public class FirestoreUtil {
         Map<String, Object> user = new HashMap<>();
         user.put("username", username);
         user.put("email", email);
-
-        db.collection("users").document(documentId).set(user);
+;
+        try {
+            db.collection("users").document(documentId).create(user);
+            System.out.println("User created with UID: " + documentId);
+        } catch (Exception e) {
+            System.err.println("Failed to create user: " + e.getMessage());
+            throw new RuntimeException("Error creating user in Firestore", e);
+        }
     }
-
-    public static void addMessage(String message, String senderId, String username) {
+    public static void addMessage(String message, String uid, String username) {
+        System.out.println("Db: " + db);
         Map<String, Object> messageData = new HashMap<>();
         messageData.put("message", message);
-        messageData.put("senderId", senderId);
+        messageData.put("senderId", uid);
+        messageData.put("timestamp", com.google.cloud.Timestamp.now());
         messageData.put("username", username);
-        messageData.put("timestamp", Timestamp.now());
 
-        db.collection("messages").add(messageData);
+        try {
+            db.collection("messages").add(messageData);
+            System.out.println("Message added successfully by " + uid);
+        } catch (Exception e) {
+            System.err.println("Failed to add message: " + e.getMessage());
+            e.printStackTrace();
+        }
     }
 
     public static List<Map<String, Object>> getAllMessages() {
         List<Map<String, Object>> messages = new ArrayList<>();
         try {
-            Firestore db = getFirestore(); // your Firestore instance
-            ApiFuture<QuerySnapshot> query = db.collection("messages")
-                    .orderBy("timestamp", Query.Direction.ASCENDING)
-                    .get();
-
-            List<QueryDocumentSnapshot> documents = query.get().getDocuments();
-            for (QueryDocumentSnapshot doc : documents) {
-                messages.add(doc.getData());
+            Query query = db.collection("messages")
+                    .orderBy("timestamp", Query.Direction.ASCENDING);
+            ApiFuture<QuerySnapshot> querySnapshot = query.get();
+            for (DocumentSnapshot document : querySnapshot.get().getDocuments()) {
+                messages.add(document.getData());
             }
-        } catch (Exception e) {
+            return messages;
+        } catch (InterruptedException | ExecutionException e) {
             e.printStackTrace();
+            return messages;
         }
-        return messages;
     }
 
     public static DocumentSnapshot getUserByEmail(String email) {
