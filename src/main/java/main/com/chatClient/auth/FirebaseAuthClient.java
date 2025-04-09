@@ -107,12 +107,15 @@ public class FirebaseAuthClient {
                 }
                 String idToken = rootNode.get("idToken").asText();
                 String uid = rootNode.get("localId").asText();
+                System.out.println("authClient " + idToken + " " + uid);
                 Map<String, String> result = new HashMap<>();
                 result.put("idToken", idToken);
-                result.put("documentId", uid);
+                result.put("uid", uid);
                 return result;
             } catch (Exception e) {
+                System.err.println("Error parsing login response: " + e.getMessage());
                 e.printStackTrace();
+                return null;
             }
         }
         return null;
