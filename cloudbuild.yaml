@@ -1,9 +1,9 @@
 steps:
   - name: 'maven:3.9.6-eclipse-temurin-21'
-    entrypoint: 'bash'
-    args: ['-c','echo "Java Version:"; java -version; echo "Maven Version:"; mvn -version']
+    args: ['--version']
     id: 'debug-jdk'
   - name: 'maven:3.9.6-eclipse-temurin-21'
+    entrypoint: 'mvn'
     args: ['clean', 'package', '-X']
     id: 'build'
   - name: 'gcr.io/cloud-builders/gsutil'
