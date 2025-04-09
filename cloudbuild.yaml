@@ -1,6 +1,7 @@
 steps:
   - name: 'maven:3.9.6-eclipse-temurin-21'
-    args: ['--version']
+    entrypoint: 'bash'
+    args: ['-c','echo "Java Version:"; java -version; echo "Maven Version:"; mvn -version']
     id: 'debug-jdk'
   - name: 'maven:3.9.6-eclipse-temurin-21'
     args: ['clean', 'package', '-X']
