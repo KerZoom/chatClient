@@ -1,8 +1,5 @@
 steps:
   - name: 'maven:3.9.6-eclipse-temurin-21'
-    args: ['--version']
-    id: 'debug-jdk'
-  - name: 'maven:3.9.6-eclipse-temurin-21'
     entrypoint: 'mvn'
     args: ['clean', 'package', '-X']
     id: 'build'
