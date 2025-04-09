@@ -1,0 +1,27 @@
+steps:
+  # Build the JAR using JDK21
+  - name: 'gcr.io/cloud-builders/mvn:jdk-21'
+    args: ['clean', 'package']
+    id: 'build'
+
+  # Move built JAR file to the chat_clients bucket
+  - name: 'gcr.io/cloud-builders/gsutil'
+    args: ['cp', 'target/Chat_Client-2.0-ALPHA.jar', 'gs://$_BUCKET_NAME/Chat_Client-$BUILD_ID.jar']
+    id: 'upload-jar'
+
+  # Send notification that a new build is ready
+  - name: 'gcr.io/cloud-builders/gcloud'
+    args:
+      - 'pubsub'
+      - 'topics'
+      - 'publish'
+      - 'build-status'
+      - '--message'
+      - 'Build $BUILD_ID completed. Download: gs://$_BUCKET_NAME/Chat_Client-$BUILD_ID.jar'
+    id: 'notify'
+
+substitutions:
+  _BUCKET_NAME: chat-client-artifacts
+
+options:
+  logging: CLOUD_LOGGING_ONLY
