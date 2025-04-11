@@ -80,8 +80,13 @@
             <version>5.11.2</version>
             <scope>test</scope>
         </dependency>
-
     </dependencies>
+    <distributionManagement>
+        <repository>
+            <id>artifact-registry</id>
+            <url>artifactregistry://europe-west1-maven.pkg.dev/fine-rite-443512-n6/chat-client-repo</url>
+        </repository>
+    </distributionManagement>
 
     <build>
         <plugins>
