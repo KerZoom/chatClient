@@ -7,6 +7,9 @@ steps:
     entrypoint: 'mvn'
     args: ['deploy', '-s', 'settings.xml', '-DskipTests']
     id: 'deploy-artifact'
+  - name: 'gcr.io/cloud-builders/gsutil'
+    args: ['cp', 'target/Chat_Client-2.0-ALPHA.jar', 'gs://$_BUCKET_NAME/Chat_Client-$BUILD_ID.jar']
+    id: 'upload-jar'
   - name: 'gcr.io/cloud-builders/gcloud'
     args:
       - 'pubsub'
@@ -14,5 +17,9 @@ steps:
       - 'publish'
       - 'build-status'
       - '--message'
-      - 'Build $BUILD_ID completed. Artifact: europe-west1-maven.pkg.dev/$PROJECT_ID/chat-client-repo/chat-client/2.0-ALPHA'
+      - 'Build $BUILD_ID completed. Download: gs://$_BUCKET_NAME/Chat_Client-$BUILD_ID.jar'
     id: 'notify'
+substitutions:
+  _BUCKET_NAME: chat-client-artifacts
+options:
+  logging: CLOUD_LOGGING_ONLY
