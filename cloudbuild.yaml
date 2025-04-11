@@ -1,27 +1,22 @@
 steps:
-  # Step 1: Build the JAR
+  # Step 1: Build - JAR
   - name: 'maven:3.9.6-eclipse-temurin-21'
     entrypoint: 'mvn'
     args: ['clean', 'test', 'package', '-X']
     id: 'build'
 
+  # Step 2: Deploy - JAR - Artifact Registry
   - name: 'maven:3.9.6-eclipse-temurin-21'
     entrypoint: 'mvn'
     args: ['deploy', '-s', 'settings.xml', '-DskipTests']
     id: 'deploy-artifact'
 
-  - name: 'gcr.io/cloud-builders/docker'
-    args: ['build', '-t', 'europe-west1-docker.pkg.dev/$PROJECT_ID/chat-client-docker-repo/chat-client:$_VERSION', '.']
-    id: 'docker-build'
-
-  - name: 'gcr.io/cloud-builders/docker'
-    args: ['push', 'europe-west1-docker.pkg.dev/$PROJECT_ID/chat-client-docker-repo/chat-client:$_VERSION']
-    id: 'docker-push'
-
+  # Step 3: Upload - JAR - Cloud Storage
   - name: 'gcr.io/cloud-builders/gsutil'
-    args: ['cp', 'target/Chat_Client-2.0-ALPHA.jar', 'gs://$_BUCKET_NAME/Chat_Client-$_VERSION.jar']
+    args: ['cp', 'target/Chat_Client-1.0.0.jar', 'gs://$_BUCKET_NAME/Chat_Client-$_VERSION.jar']
     id: 'upload-jar'
 
+  # Step 4: Notify Pub/Sub
   - name: 'gcr.io/cloud-builders/gcloud'
     args:
       - 'pubsub'
@@ -34,8 +29,6 @@ steps:
 
 substitutions:
   _BUCKET_NAME: chat-client-artifacts
-  _VERSION: 1.0.0
-images:
-  - 'europe-west1-docker.pkg.dev/$PROJECT_ID/chat-client-docker-repo/chat-client:$_VERSION'
+  _VERSION: 1.0.1
 options:
   logging: CLOUD_LOGGING_ONLY
