@@ -10,6 +10,7 @@ steps:
     entrypoint: 'mvn'
     args: ['deploy', '-s', 'settings.xml', '-DskipTests']
     id: 'deploy-artifact'
+    waitFor: ['build']
 
   # Step 3: Notify - Pub/Sub
   - name: 'gcr.io/cloud-builders/gcloud'
@@ -19,17 +20,18 @@ steps:
       - 'publish'
       - 'build-status'
       - '--message'
-      - 'Build $_VERSION completed. Download: gs://$_BUCKET_NAME/Chat_Client-$_VERSION.jar'
+      - 'Build $_VERSION completed. GCS Path: gs://$_BUCKET_NAME/$_VERSION/Chat_Client-$_VERSION.jar'
     id: 'notify'
+    waitFor: ['deploy-artifact']
 
 substitutions:
   _BUCKET_NAME: chat-client-artifacts
-  _VERSION: 1.0.3
+  _VERSION: 1.0.4
 options:
   logging: CLOUD_LOGGING_ONLY
 
 artifacts:
   objects:
-    location: gs://$_BUCKET_NAME/
+    location: gs://$_BUCKET_NAME/$_VERSION/
     paths:
       - target/Chat_Client-$_VERSION.jar
