@@ -1,17 +1,39 @@
 steps:
+  # Step 0: Inject version into pom.xml using Git tag (substitution _VERSION)
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: bash
+    args:
+      - -c
+      - |
+        VERSION="${_VERSION}"
+        echo "Setting version to ${VERSION} in pom.xml"
+        mvn versions:set -DnewVersion=${VERSION}
+
   # Step 1: Build - JAR
   - name: 'maven:3.9.6-eclipse-temurin-21'
     entrypoint: 'mvn'
     args: ['clean', 'test', 'package', '-X']
     id: 'build'
 
-  # Step 2: Deploy - JAR - Artifact Registry
+  # Step 2: Deploy - JAR to Artifact Registry (if required)
   - name: 'maven:3.9.6-eclipse-temurin-21'
     entrypoint: 'mvn'
     args: ['deploy', '-s', 'settings.xml', '-DskipTests']
     id: 'deploy-artifact'
 
-  # Step 3: Notify - Pub/Sub
+  # Step 3: Upload - JAR to Cloud Storage (with versioned folder)
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: bash
+    args:
+      - -c
+      - |
+        VERSION="${_VERSION}"
+        JAR_PATH="target/Chat_Client-${VERSION}.jar"
+        echo "Uploading ${JAR_PATH} to gs://$_BUCKET_NAME/${VERSION}/"
+        gsutil cp "${JAR_PATH}" "gs://$_BUCKET_NAME/${VERSION}/"
+    id: 'upload-artifact'
+
+  # Step 4: Notify - Pub/Sub (send build success notification)
   - name: 'gcr.io/cloud-builders/gcloud'
     args:
       - 'pubsub'
@@ -19,17 +41,18 @@ steps:
       - 'publish'
       - 'build-status'
       - '--message'
-      - 'Build $_VERSION completed. Download: gs://$_BUCKET_NAME/Chat_Client-$_VERSION.jar'
+      - 'Build ${_VERSION} completed. Download: gs://$_BUCKET_NAME/${_VERSION}/Chat_Client-${_VERSION}.jar'
     id: 'notify'
 
 substitutions:
   _BUCKET_NAME: chat-client-artifacts
-  _VERSION: 1.0.3
+  _VERSION: ${TAG_NAME}  # Uses the Git tag as version
+
 options:
   logging: CLOUD_LOGGING_ONLY
 
 artifacts:
   objects:
-    location: gs://$_BUCKET_NAME/
+    location: gs://$_BUCKET_NAME/${_VERSION}/
     paths:
-      - target/Chat_Client-$_VERSION.jar
+      - target/Chat_Client-${_VERSION}.jar
