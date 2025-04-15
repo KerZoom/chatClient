@@ -19,7 +19,7 @@ public class FirebaseAuthClient {
     private static final String API_KEY = FirebaseConfig.API_KEY;
     private static final ObjectMapper objectMapper = new ObjectMapper();
 
-    private static String sendPostRequest(String urlString, ObjectNode requestBody) {
+    public static String sendPostRequest(String urlString, ObjectNode requestBody) {
         try {
             URL url = new URL(urlString);
             HttpURLConnection conn = (HttpURLConnection) url.openConnection();
