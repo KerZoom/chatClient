@@ -94,6 +94,7 @@ public class ChatWindow extends JFrame implements ChatWindowListener {
         setLocationRelativeTo(null);
         setVisible(true);
     }
+    //Test
 
     private void sendMessage() {
         String message = messageField.getText().trim();
