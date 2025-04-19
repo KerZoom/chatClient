@@ -26,7 +26,7 @@ steps:
 
 substitutions:
   _BUCKET_NAME: chat-client-artifacts
-  _VERSION: 2.0.7
+  _VERSION: 2.0.8
 options:
   logging: CLOUD_LOGGING_ONLY
 
