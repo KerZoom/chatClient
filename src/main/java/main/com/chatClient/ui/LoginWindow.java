@@ -136,6 +136,8 @@ public class LoginWindow extends JFrame {
         return panel;
     }
 
+
+    // This a comment
     private JPanel createRegisterPanel() {
         JPanel panel = new JPanel(new GridBagLayout());
         panel.setBackground(new Color(40, 40, 40));
@@ -209,6 +211,8 @@ public class LoginWindow extends JFrame {
 
         return panel;
     }
+
+
 
     private void login() {
         String email = emailFieldLogin.getText().trim();
