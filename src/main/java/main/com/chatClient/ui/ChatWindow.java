@@ -94,7 +94,7 @@ public class ChatWindow extends JFrame implements ChatWindowListener {
         setLocationRelativeTo(null);
         setVisible(true);
     }
-    //Oh look another comment wow??!!!
+    //Oh look another comment??!!!
 
     private void sendMessage() {
         String message = messageField.getText().trim();
@@ -120,6 +120,7 @@ public class ChatWindow extends JFrame implements ChatWindowListener {
             placeholderIcon = null;
         }
     }
+    // Yes
 
     private JPanel createMessagePanel(String senderUsername, LocalDateTime messageTimestamp, String message) {
         JPanel messagePanel = new JPanel(new BorderLayout());
