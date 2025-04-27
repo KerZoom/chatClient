@@ -120,6 +120,7 @@ public class ChatWindow extends JFrame implements ChatWindowListener {
             placeholderIcon = null;
         }
     }
+    // yayyy
 
     private JPanel createMessagePanel(String senderUsername, LocalDateTime messageTimestamp, String message) {
         JPanel messagePanel = new JPanel(new BorderLayout());
