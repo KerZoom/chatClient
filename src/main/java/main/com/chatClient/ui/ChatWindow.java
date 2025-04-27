@@ -83,7 +83,7 @@ public class ChatWindow extends JFrame implements ChatWindowListener {
         inputPanel.add(messageField, BorderLayout.CENTER);
         inputPanel.add(sendButton, BorderLayout.EAST);
         add(inputPanel, BorderLayout.SOUTH);
-        //yes
+
         sendButton.addActionListener(e -> sendMessage());
         messageField.addActionListener(e -> sendMessage());
         uploadButton.addActionListener(e -> uploadFile());
