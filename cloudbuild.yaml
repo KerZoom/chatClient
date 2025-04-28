@@ -12,7 +12,13 @@ steps:
     id: 'deploy-artifact'
     waitFor: ['build']
 
-  # Step 3: Notify - Pub/Sub
+  # Step 3: Upload to GCS
+  - name: 'gcr.io/cloud-builders/gsutil'
+    args: ['cp', 'target/Chat_Client-$_VERSION.jar', 'gs://$_BUCKET_NAME/$_VERSION/Chat_Client-$_VERSION.jar']
+    id: 'upload-to-gcs'
+    waitFor: ['deploy-artifact']
+
+  # Step 4: Notify - Pub/Sub (now waits for GCS upload)
   - name: 'gcr.io/cloud-builders/gcloud'
     args:
       - 'pubsub'
@@ -22,16 +28,10 @@ steps:
       - '--message'
       - '{"status": "SUCCESS", "id": "$BUILD_ID", "artifacts": {"objects": [{"name": "gs://$_BUCKET_NAME/$_VERSION/Chat_Client-$_VERSION.jar"}]}}'
     id: 'notify'
-    waitFor: ['deploy-artifact']
+    waitFor: ['upload-to-gcs']
 
 substitutions:
   _BUCKET_NAME: chat-client-artifacts
-  _VERSION: 2.1.9
+  _VERSION: 2.2.0
 options:
   logging: CLOUD_LOGGING_ONLY
-
-artifacts:
-  objects:
-    location: gs://$_BUCKET_NAME/$_VERSION/
-    paths:
-      - target/Chat_Client-$_VERSION.jar
