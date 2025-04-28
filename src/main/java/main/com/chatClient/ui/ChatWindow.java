@@ -149,7 +149,7 @@ public class ChatWindow extends JFrame implements ChatWindowListener {
         timeLabel.setFont(new Font(Font.SANS_SERIF, Font.PLAIN, 12));
         topRow.add(timeLabel, BorderLayout.EAST);
         textPanel.add(topRow);
-        //Test Message 2
+        //Test Message 3
         if (message.startsWith("file:")) {
             String[] parts = message.split(":", 3);
             if (parts.length == 3) {
