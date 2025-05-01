@@ -24,15 +24,26 @@ public class FirebaseAuthClientTest {
 
     @BeforeEach
     void setUp() {
+        // Mock FirebaseConfig first if FirestoreUtil depends on it during static initialization
         firebaseConfigMock = Mockito.mockStatic(FirebaseConfig.class);
-        firebaseConfigMock.when(FirebaseConfig::getFirestore).thenReturn(null);
-        firestoreUtilMock = Mockito.mockStatic(FirestoreUtil.class);
+        firebaseConfigMock.when(FirebaseConfig::getFirestore).thenReturn(null); // Prevent actual DB connection
 
+        // Mock FirestoreUtil
+        firestoreUtilMock = Mockito.mockStatic(FirestoreUtil.class);
+        // Prevent FirestoreUtil.addUser from doing anything real in tests
+        firestoreUtilMock.when(() -> FirestoreUtil.addUser(anyString(), anyString(), anyString()))
+                .thenAnswer(invocation -> null);
+
+        // Mock FirebaseAuthClient static methods we want to control/verify
         firebaseAuthClientStaticMock = Mockito.mockStatic(FirebaseAuthClient.class);
+        // Make sure the actual logic of login/register is called unless specifically mocked otherwise
         firebaseAuthClientStaticMock.when(() -> FirebaseAuthClient.loginUser(anyString(), anyString()))
                 .thenCallRealMethod();
         firebaseAuthClientStaticMock.when(() -> FirebaseAuthClient.registerUser(anyString(), anyString(), anyString()))
                 .thenCallRealMethod();
+        // Mock the underlying network call
+        firebaseAuthClientStaticMock.when(() -> FirebaseAuthClient.sendPostRequest(anyString(), any(ObjectNode.class)))
+                .thenReturn(null); // Default mock behavior (can be overridden per test)
     }
 
     @AfterEach
@@ -129,23 +140,27 @@ public class FirebaseAuthClientTest {
                 expectedToken, email, expectedUid
         );
 
+        // Specific mock for this test case
         firebaseAuthClientStaticMock.when(() -> FirebaseAuthClient.sendPostRequest(
                         startsWith("https://identitytoolkit.googleapis.com/v1/accounts:signUp"),
                         any(ObjectNode.class)
                 ))
                 .thenReturn(successResponseJson);
 
-        firestoreUtilMock.when(() -> FirestoreUtil.addUser(anyString(), anyString(), anyString()))
-                .thenAnswer(invocation -> null); // Just ensure it does nothing
+        // Call the method under test
+        Map<String, String> result = FirebaseAuthClient.registerUser(email, password, username); // Get the Map
 
-        String resultToken = FirebaseAuthClient.registerUser(email, password, username); // This is line 165 now
-        assertNotNull(resultToken, "Registration result token should not be null on success");
-        assertEquals(expectedToken, resultToken, "idToken should match");
+        // Assertions
+        assertNotNull(result, "Registration result should not be null on success"); // Check map isn't null
+        assertEquals(expectedToken, result.get("idToken"), "idToken should match"); // Check idToken in map
+        assertEquals(expectedUid, result.get("uid"), "uid should match"); // Check uid in map
 
+        // Verifications
         firebaseAuthClientStaticMock.verify(() -> FirebaseAuthClient.sendPostRequest(
                 startsWith("https://identitytoolkit.googleapis.com/v1/accounts:signUp"),
                 any(ObjectNode.class)
         ));
+        // Verify FirestoreUtil.addUser was called with the UID, username, and email
         firestoreUtilMock.verify(() -> FirestoreUtil.addUser(eq(expectedUid), eq(username), eq(email)));
     }
 
@@ -157,19 +172,25 @@ public class FirebaseAuthClientTest {
         String failureResponseJson =
                 "{\"error\":{\"code\":400,\"message\":\"EMAIL_EXISTS\",\"errors\":[{\"message\":\"EMAIL_EXISTS\",\"domain\":\"global\",\"reason\":\"invalid\"}]}}";
 
+        // Specific mock for this test case
         firebaseAuthClientStaticMock.when(() -> FirebaseAuthClient.sendPostRequest(
                         startsWith("https://identitytoolkit.googleapis.com/v1/accounts:signUp"),
                         any(ObjectNode.class)
                 ))
                 .thenReturn(failureResponseJson);
 
-        String resultToken = FirebaseAuthClient.registerUser(email, password, username);
-        assertNull(resultToken, "Registration result token should be null when email exists");
+        // Call the method under test
+        Map<String, String> result = FirebaseAuthClient.registerUser(email, password, username); // Get the result (should be null)
 
+        // Assertion
+        assertNull(result, "Registration result should be null when email exists"); // Check the map itself is null
+
+        // Verifications
         firebaseAuthClientStaticMock.verify(() -> FirebaseAuthClient.sendPostRequest(
                 startsWith("https://identitytoolkit.googleapis.com/v1/accounts:signUp"),
                 any(ObjectNode.class)
         ));
+        // Verify FirestoreUtil.addUser was NOT called
         firestoreUtilMock.verifyNoInteractions();
     }
 
@@ -179,19 +200,20 @@ public class FirebaseAuthClientTest {
         String password = "newpassword";
         String username = "NewUser";
 
-        firebaseAuthClientStaticMock.when(() -> FirebaseAuthClient.sendPostRequest(
-                        startsWith("https://identitytoolkit.googleapis.com/v1/accounts:signUp"),
-                        any(ObjectNode.class)
-                ))
-                .thenReturn(null);
+        // sendPostRequest already mocked to return null by default in setUp
 
-        String resultToken = FirebaseAuthClient.registerUser(email, password, username);
-        assertNull(resultToken, "Registration result token should be null on network error");
+        // Call the method under test
+        Map<String, String> result = FirebaseAuthClient.registerUser(email, password, username); // Get the result (should be null)
 
+        // Assertion
+        assertNull(result, "Registration result should be null on network error"); // Check the map itself is null
+
+        // Verifications
         firebaseAuthClientStaticMock.verify(() -> FirebaseAuthClient.sendPostRequest(
                 startsWith("https://identitytoolkit.googleapis.com/v1/accounts:signUp"),
                 any(ObjectNode.class)
         ));
+        // Verify FirestoreUtil.addUser was NOT called
         firestoreUtilMock.verifyNoInteractions();
     }
 }

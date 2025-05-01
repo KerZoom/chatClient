@@ -18,7 +18,7 @@ steps:
     id: 'upload-to-gcs'
     waitFor: ['deploy-artifact']
 
-  # Step 4: Notify - Pub/Sub (now waits for GCS upload)
+  # Step 4: Notify - Pub/Sub
   - name: 'gcr.io/cloud-builders/gcloud'
     args:
       - 'pubsub'
