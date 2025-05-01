@@ -21,8 +21,7 @@ public class FirebaseAuthClient {
     private static final String API_KEY = FirebaseConfig.API_KEY;
     private static final ObjectMapper objectMapper = new ObjectMapper();
     
-    // Base URL for Firebase Auth REST API
-    private static final String AUTH_BASE_URL = "https://identitytoolkit.googleapis.com/v1/accounts:";
+      private static final String AUTH_BASE_URL = "https://identitytoolkit.googleapis.com/v1/accounts:";
 
     /**
      * Registers a new user with Firebase Authentication.
@@ -34,34 +33,29 @@ public class FirebaseAuthClient {
      */
     public static Map<String, String> registerUser(String email, String password, String username) {
         try {
-            // Create signup request
-            String url = AUTH_BASE_URL + "signUp?key=" + API_KEY;
+                      String url = AUTH_BASE_URL + "signUp?key=" + API_KEY;
             ObjectNode requestBody = objectMapper.createObjectNode();
             requestBody.put("email", email);
             requestBody.put("password", password);
             requestBody.put("returnSecureToken", true);
 
-            // Send request and get response
-            String response = sendPostRequest(url, requestBody);
+                      String response = sendPostRequest(url, requestBody);
             if (response == null) {
                 System.err.println("No response received from Firebase auth server");
                 return null;
             }
             
-            // Parse response
-            JsonNode rootNode = objectMapper.readTree(response);
+                      JsonNode rootNode = objectMapper.readTree(response);
             if (rootNode.has("error")) {
                 String errorMessage = rootNode.get("error").get("message").asText();
                 System.err.println("Error during registration: " + errorMessage);
                 return null;
             }
             
-            // Extract auth data
-            String idToken = rootNode.get("idToken").asText();
+                      String idToken = rootNode.get("idToken").asText();
             String uid = rootNode.get("localId").asText();
             
-            // Return authentication data
-            Map<String, String> result = new HashMap<>();
+                      Map<String, String> result = new HashMap<>();
             result.put("idToken", idToken);
             result.put("uid", uid);
             result.put("email", email);
@@ -83,34 +77,29 @@ public class FirebaseAuthClient {
      */
     public static Map<String, String> loginUser(String email, String password) {
         try {
-            // Create login request
-            String url = AUTH_BASE_URL + "signInWithPassword?key=" + API_KEY;
+                      String url = AUTH_BASE_URL + "signInWithPassword?key=" + API_KEY;
             ObjectNode requestBody = objectMapper.createObjectNode();
             requestBody.put("email", email);
             requestBody.put("password", password);
             requestBody.put("returnSecureToken", true);
 
-            // Send request and get response
-            String response = sendPostRequest(url, requestBody);
+                      String response = sendPostRequest(url, requestBody);
             if (response == null) {
                 System.err.println("No response received from Firebase auth server");
                 return null;
             }
             
-            // Parse response
-            JsonNode rootNode = objectMapper.readTree(response);
+                      JsonNode rootNode = objectMapper.readTree(response);
             if (rootNode.has("error")) {
                 String errorMessage = rootNode.get("error").get("message").asText();
                 System.err.println("Login failed: " + errorMessage);
                 return null;
             }
             
-            // Extract auth data
-            String idToken = rootNode.get("idToken").asText();
+                      String idToken = rootNode.get("idToken").asText();
             String uid = rootNode.get("localId").asText();
             
-            // Return authentication data
-            Map<String, String> result = new HashMap<>();
+                      Map<String, String> result = new HashMap<>();
             result.put("idToken", idToken);
             result.put("uid", uid);
             result.put("email", email);
@@ -131,8 +120,7 @@ public class FirebaseAuthClient {
      */
     public static String sendPostRequest(String urlString, ObjectNode requestBody) {
         try {
-            // Setup connection
-            URL url = new URL(urlString);
+                      URL url = new URL(urlString);
             HttpURLConnection conn = (HttpURLConnection) url.openConnection();
             conn.setRequestMethod("POST");
             conn.setRequestProperty("Content-Type", "application/json");
@@ -140,8 +128,7 @@ public class FirebaseAuthClient {
             conn.setConnectTimeout(10000);
             conn.setReadTimeout(10000);
 
-            // Send request
-            String requestBodyString = requestBody.toString();
+                      String requestBodyString = requestBody.toString();
             System.out.println("Request URL: " + urlString);
             System.out.println("Request Body: " + requestBodyString);
 
@@ -150,8 +137,7 @@ public class FirebaseAuthClient {
                 os.write(input, 0, input.length);
             }
 
-            // Get response
-            int responseCode = conn.getResponseCode();
+                      int responseCode = conn.getResponseCode();
             System.out.println("Response Code: " + responseCode);
 
             StringBuilder response = new StringBuilder();

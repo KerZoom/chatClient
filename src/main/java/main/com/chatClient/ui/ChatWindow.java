@@ -39,8 +39,7 @@ import java.util.List;
  */
 public class ChatWindow extends JFrame implements ChatWindowListener {
 
-    // UI Components
-    private final JPanel messagesPanel;
+      private final JPanel messagesPanel;
     private final JScrollPane scrollPane;
     private final JTextField messageField;
     private final JButton sendButton;
@@ -48,21 +47,17 @@ public class ChatWindow extends JFrame implements ChatWindowListener {
     private final JLabel statusLabel;
     private JLabel loadingMoreLabel;
 
-    // User data
-    private final String uid;
+      private final String uid;
     private final String username;
 
-    // Services
-    private final ChatService chatService;
+      private final ChatService chatService;
 
-    // Image handling
-    private final List<String> imageExtensions = Arrays.asList("png", "jpg", "jpeg", "gif", "webp");
+      private final List<String> imageExtensions = Arrays.asList("png", "jpg", "jpeg", "gif", "webp");
     private static final int ICON_WIDTH = 32;
     private static final int ICON_HEIGHT = 32;
     private final Map<String, ImageIcon> userIconCache = new HashMap<>();
 
-    // Pagination state
-    private static final int MESSAGES_PER_PAGE = 20;
+      private static final int MESSAGES_PER_PAGE = 20;
     private Timestamp oldestMessageTimestamp = null;
     private boolean allMessagesLoaded = false;
     private boolean isLoadingMore = false;
@@ -74,63 +69,53 @@ public class ChatWindow extends JFrame implements ChatWindowListener {
      * @param username User's display name
      */
     public ChatWindow(String uid, String username) {
-        // Set up look and feel
-        try {
+              try {
             UIManager.setLookAndFeel(new FlatDarkLaf());
         } catch (Exception ex) {
             System.err.println("Failed to initialize LaF: " + ex.getMessage());
         }
 
-        // Set user data
-        this.uid = uid;
+              this.uid = uid;
         this.username = username;
 
-        // Initialize services
-        this.chatService = new ChatService();
+              this.chatService = new ChatService();
 
-        // Set up window
-        setTitle("Chat - " + username);
+              setTitle("Chat - " + username);
         setSize(800, 600);
         setMinimumSize(new Dimension(500, 400));
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setLayout(new BorderLayout());
         getContentPane().setBackground(new Color(40, 40, 40));
 
-        // Add window closing handler
-        addWindowListener(new WindowAdapter() {
+              addWindowListener(new WindowAdapter() {
             @Override
             public void windowClosing(WindowEvent e) {
                 cleanupResources();
             }
         });
 
-        // Create messages panel
-        messagesPanel = new JPanel();
+              messagesPanel = new JPanel();
         messagesPanel.setLayout(new BoxLayout(messagesPanel, BoxLayout.Y_AXIS));
         messagesPanel.setBackground(new Color(40, 40, 40));
 
-        // Create "loading more" label
-        loadingMoreLabel = new JLabel("Loading older messages...", SwingConstants.CENTER);
+              loadingMoreLabel = new JLabel("Loading older messages...", SwingConstants.CENTER);
         loadingMoreLabel.setForeground(Color.LIGHT_GRAY);
         loadingMoreLabel.setFont(new Font(Font.SANS_SERIF, Font.ITALIC, 12));
         loadingMoreLabel.setBorder(BorderFactory.createEmptyBorder(10, 0, 10, 0));
         loadingMoreLabel.setVisible(false);
 
-        // Add loading label to top of messages panel
-        JPanel topPanel = new JPanel(new BorderLayout());
+              JPanel topPanel = new JPanel(new BorderLayout());
         topPanel.setOpaque(false);
         topPanel.add(loadingMoreLabel, BorderLayout.CENTER);
         messagesPanel.add(topPanel);
 
-        // Create scroll pane
-        scrollPane = new JScrollPane(messagesPanel);
+              scrollPane = new JScrollPane(messagesPanel);
         scrollPane.getViewport().setBackground(new Color(40, 40, 40));
         scrollPane.setBorder(BorderFactory.createEmptyBorder());
         scrollPane.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
         scrollPane.getVerticalScrollBar().setUnitIncrement(16);
 
-        // Add scroll listener for pagination
-        scrollPane.getVerticalScrollBar().addAdjustmentListener(e -> {
+              scrollPane.getVerticalScrollBar().addAdjustmentListener(e -> {
             if (!e.getValueIsAdjusting() && !isLoadingMore && !allMessagesLoaded) {
                 JScrollBar scrollBar = (JScrollBar) e.getAdjustable();
                 if (scrollBar.getValue() <= scrollBar.getVisibleAmount() / 4) {
@@ -141,8 +126,7 @@ public class ChatWindow extends JFrame implements ChatWindowListener {
 
         add(scrollPane, BorderLayout.CENTER);
 
-        // Create status panel
-        JPanel statusPanel = new JPanel(new BorderLayout());
+              JPanel statusPanel = new JPanel(new BorderLayout());
         statusPanel.setBackground(new Color(50, 50, 50));
         statusPanel.setBorder(BorderFactory.createEmptyBorder(2, 5, 2, 5));
         statusLabel = new JLabel("Connected as " + username);
@@ -150,8 +134,7 @@ public class ChatWindow extends JFrame implements ChatWindowListener {
         statusPanel.add(statusLabel, BorderLayout.CENTER);
         add(statusPanel, BorderLayout.NORTH);
 
-        // Create input panel
-        JPanel inputPanel = new JPanel(new BorderLayout(5, 0));
+              JPanel inputPanel = new JPanel(new BorderLayout(5, 0));
         inputPanel.setBackground(new Color(50, 50, 50));
         inputPanel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
 
@@ -169,21 +152,17 @@ public class ChatWindow extends JFrame implements ChatWindowListener {
         inputPanel.add(sendButton, BorderLayout.EAST);
         add(inputPanel, BorderLayout.SOUTH);
 
-        // Add event listeners
-        sendButton.addActionListener(e -> sendMessage());
+              sendButton.addActionListener(e -> sendMessage());
         messageField.addActionListener(e -> sendMessage());
         uploadButton.addActionListener(e -> uploadFile());
 
-        // Add message listener and load messages
-        chatService.addMessageListener(this);
+              chatService.addMessageListener(this);
         loadInitialMessages();
 
-        // Show window
-        setLocationRelativeTo(null);
+              setLocationRelativeTo(null);
         setVisible(true);
 
-        // Focus message field
-        messageField.requestFocusInWindow();
+              messageField.requestFocusInWindow();
     }
 
     /**
@@ -201,24 +180,21 @@ public class ChatWindow extends JFrame implements ChatWindowListener {
      * @return ImageIcon with the user's initial
      */
     private ImageIcon generateUserIcon(String username) {
-        // Check cache first
-        if (userIconCache.containsKey(username)) {
+              if (userIconCache.containsKey(username)) {
             return userIconCache.get(username);
         }
 
         BufferedImage icon = new BufferedImage(ICON_WIDTH, ICON_HEIGHT, BufferedImage.TYPE_INT_ARGB);
         Graphics2D g2d = icon.createGraphics();
 
-        // Generate a consistent color based on username
-        int hash = username.hashCode();
+              int hash = username.hashCode();
         Color userColor = new Color(
                 Math.abs(hash) % 200 + 55,
                 Math.abs(hash >> 8) % 200 + 55,
                 Math.abs(hash >> 16) % 200 + 55
         );
 
-        // Draw a circle with the user's initial
-        g2d.setColor(userColor);
+              g2d.setColor(userColor);
         g2d.fillOval(0, 0, ICON_WIDTH, ICON_HEIGHT);
         g2d.setColor(Color.WHITE);
         g2d.setFont(new Font(Font.SANS_SERIF, Font.BOLD, 16));
@@ -277,31 +253,26 @@ public class ChatWindow extends JFrame implements ChatWindowListener {
      * @return Message panel
      */
     private JPanel createMessagePanel(String senderUsername, LocalDateTime messageTimestamp, String message) {
-        // Create main panel
-        JPanel messagePanel = new JPanel(new BorderLayout(10, 0));
+              JPanel messagePanel = new JPanel(new BorderLayout(10, 0));
         messagePanel.setBackground(new Color(50, 50, 50));
         messagePanel.setBorder(new EmptyBorder(10, 10, 10, 10));
 
-        // Highlight if message is from current user
-        boolean isCurrentUser = senderUsername.equals(username);
+              boolean isCurrentUser = senderUsername.equals(username);
         if (isCurrentUser) {
             messagePanel.setBackground(new Color(60, 70, 80));
         }
 
-        // Create icon panel with sender-specific icon
-        JLabel iconLabel = new JLabel(generateUserIcon(senderUsername));
+              JLabel iconLabel = new JLabel(generateUserIcon(senderUsername));
         JPanel leftPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
         leftPanel.setOpaque(false);
         leftPanel.add(iconLabel);
         messagePanel.add(leftPanel, BorderLayout.WEST);
 
-        // Create text panel
-        JPanel textPanel = new JPanel();
+              JPanel textPanel = new JPanel();
         textPanel.setLayout(new BoxLayout(textPanel, BoxLayout.Y_AXIS));
         textPanel.setOpaque(false);
 
-        // Create header panel with username and timestamp
-        JPanel topRow = new JPanel(new BorderLayout());
+              JPanel topRow = new JPanel(new BorderLayout());
         topRow.setOpaque(false);
 
         JLabel usernameLabel = new JLabel(senderUsername);
@@ -317,13 +288,10 @@ public class ChatWindow extends JFrame implements ChatWindowListener {
 
         textPanel.add(topRow);
 
-        // Handle message content
-        if (message.startsWith("file:")) {
-            // Handle file attachments
-            addFileContent(textPanel, message);
+              if (message.startsWith("file:")) {
+                      addFileContent(textPanel, message);
         } else {
-            // Handle regular text messages
-            JTextArea messageArea = createMessageArea(message);
+                      JTextArea messageArea = createMessageArea(message);
             textPanel.add(messageArea);
         }
 
